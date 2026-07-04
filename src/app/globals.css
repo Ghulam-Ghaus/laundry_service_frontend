@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+@theme {
+  --color-peach-50: #fff7f5;
+  --color-peach-100: #ffece6;
+  --color-peach-200: #ffd3c4;
+  --color-peach-300: #f9a78c;
+  --color-peach-400: #f27954;
+  --color-peach-500: #e8582d;
+  --color-peach-600: #e07a5f;
+  --color-peach-700: #c94c2d;
+  --color-peach-800: #a13d25;
+  --color-peach-900: #81321f;
+  
+  --font-sans: 'Outfit', 'Inter', var(--font-geist-sans), sans-serif;
+  --font-serif: 'Playfair Display', var(--font-geist-mono), serif;
+  
+  --animate-float-bubble: floatBubble 14s infinite linear;
+  --animate-spin-drum: spinDrum 10s infinite linear;
+  --animate-float-garment: floatGarment 5s infinite ease-in-out;
+  --animate-sparkle: cleanSparkle 3s infinite ease-in-out;
+  --animate-shimmer: shimmerSweep 3s infinite linear;
+  --animate-fade-in-up: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  
+  @keyframes floatBubble {
+    0% {
+      transform: translateY(100vh) scale(0.4) translateX(0);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.6;
+    }
+    85% {
+      opacity: 0.6;
+    }
+    100% {
+      transform: translateY(-15vh) scale(1.1) translateX(45px);
+      opacity: 0;
+    }
+  }
+  @keyframes spinDrum {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes floatGarment {
+    0%, 100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(1deg);
+    }
+  }
+  @keyframes cleanSparkle {
+    0%, 100% {
+      transform: scale(0.8) rotate(0deg);
+      opacity: 0.3;
+    }
+    50% {
+      transform: scale(1.2) rotate(45deg);
+      opacity: 1;
+    }
+  }
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmerSweep {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+:root {
+  --background: #fdfbf9;
+  --foreground: #111827;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, sans-serif;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* Modern Glassmorphic Panels */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-panel-dark {
+  background: rgba(17, 24, 39, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Beautiful Interactive Card Lift */
+.card-premium-hover {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-premium-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(224, 122, 95, 0.08);
+  border-color: rgba(242, 121, 84, 0.25);
+}
+
+/* Shimmer Buttons and Badges */
+.shimmer-text {
+  background: linear-gradient(90deg, #e07a5f 0%, #ffffff 50%, #e07a5f 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmerSweep 4s infinite linear;
+}
+
+/* Soft floating bubbles */
+.bubble {
+  position: absolute;
+  bottom: -60px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6), rgba(224, 122, 95, 0.1) 60%, rgba(255, 255, 255, 0) 80%);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+  animation: floatBubble 14s infinite linear;
+}
+
+/* Beautiful Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fdfbf9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e2dcd5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c5bcb4;
+}
+
+/* Hide default input outline, replace with elegant peach accent */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #e07a5f;
+  box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.15);
+}
+
+
