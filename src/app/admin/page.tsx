@@ -24,14 +24,23 @@ export default function AdminDashboard() {
   // Load KPI stats and orders lists
   useEffect(() => {
     async function loadData() {
+      setLoading(true);
+
+      // Load stats independently — failure won't block orders
       try {
-        setLoading(true);
         const statsData = await adminApi.getDashboardStats();
         setStats(statsData);
+      } catch {
+        // Stats failed silently — orders still load
+      }
 
+      // Load orders independently
+      try {
         const ordersRes = await adminApi.getOrders(page, 20, statusFilter || undefined);
-        setOrders(ordersRes.items || []);
-        setTotalPages(ordersRes.pagination?.totalPages || 1);
+        const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any).items || [];
+        setOrders(ordersList);
+        const pagination = (ordersRes as any).pagination;
+        setTotalPages(pagination?.totalPages || 1);
       } catch (err: any) {
         setError(err.message || 'Access Denied or Database Connection Error.');
       } finally {
@@ -46,7 +55,8 @@ export default function AdminDashboard() {
       await adminApi.updateOrderStatus(orderId, newStatusCode);
       // Reload orders list
       const ordersRes = await adminApi.getOrders(page, 20, statusFilter || undefined);
-      setOrders(ordersRes.items || []);
+      const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any).items || [];
+      setOrders(ordersList);
       const statsData = await adminApi.getDashboardStats();
       setStats(statsData);
     } catch (err: any) {
@@ -87,23 +97,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] text-center px-4">
-        <span className="text-3xl mb-4">🔐</span>
-        <h3 className="text-lg font-semibold text-gray-700 mb-2">Access Restrained</h3>
-        <p className="text-xs text-gray-500 max-w-md mb-6">
-          Admin permission rules prevent loading logs. Verify your super-admin session or retry connections.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider text-black bg-[#cca43b] hover:bg-[#e0b84c]"
-        >
-          Retry Access
-        </button>
-      </div>
-    );
-  }
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col gap-10">
@@ -112,6 +106,9 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap gap-4 border-b border-gray-200 pb-4">
         <Link href="/admin" className="text-sm font-bold text-[#cca43b] border-b-2 border-[#cca43b] pb-2 px-1">
           Orders Dashboard
+        </Link>
+        <Link href="/admin/receipt" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
+          New Receipt
         </Link>
         <Link href="/admin/settings" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Settings
@@ -123,6 +120,13 @@ export default function AdminDashboard() {
           Trash Bin
         </Link>
       </div>
+
+      {/* Inline error banner for partial failures */}
+      {error && orders.length > 0 && (
+        <div className="bg-red-50 border border-red-100 text-red-600 text-xs px-4 py-3 rounded-2xl font-medium">
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* KPI Stats Grid */}
       {stats && (

@@ -77,7 +77,18 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   }
 
   // Backend formats success responses as: { success: true, statusCode, message, data }
-  return json?.data !== undefined ? json.data : (json as T);
+  if (json?.data !== undefined) {
+    if (json.pagination !== undefined && typeof json.data === 'object' && json.data !== null) {
+      Object.defineProperty(json.data, 'pagination', {
+        value: json.pagination,
+        writable: true,
+        enumerable: false,
+        configurable: true
+      });
+    }
+    return json.data;
+  }
+  return json as T;
 }
 
 export const httpClient = {

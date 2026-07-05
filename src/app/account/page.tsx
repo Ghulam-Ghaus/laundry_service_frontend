@@ -18,6 +18,12 @@ export default function AccountDashboard() {
     async function loadData() {
       try {
         const profile = await authApi.getMe();
+        
+        if (profile.roles && (profile.roles.includes('admin') || profile.roles.includes('super_admin'))) {
+          router.push('/admin');
+          return;
+        }
+
         setUser(profile);
 
         const list = await ordersApi.getMyOrders();

@@ -18,6 +18,9 @@ export const authApi = {
     if (response && response.accessToken) {
       localStorage.setItem('access_token', response.accessToken);
     }
+    if (response && response.user) {
+      localStorage.setItem('logged_in_user', JSON.stringify(response.user));
+    }
     return response;
   },
 
@@ -38,6 +41,7 @@ export const authApi = {
   logout(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('logged_in_user');
     }
   },
 };

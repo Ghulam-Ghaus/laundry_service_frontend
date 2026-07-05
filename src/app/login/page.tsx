@@ -17,8 +17,13 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
-      await authApi.login({ email, password });
-      router.push('/account');
+      const response = await authApi.login({ email, password });
+      const roles = response?.user?.roles || [];
+      if (roles.includes('admin') || roles.includes('super_admin')) {
+        router.push('/admin');
+      } else {
+        router.push('/account');
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid email credentials.');
     } finally {

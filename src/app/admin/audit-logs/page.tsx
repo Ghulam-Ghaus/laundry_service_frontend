@@ -63,6 +63,9 @@ export default function AdminAuditLogs() {
         <Link href="/admin" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Orders Dashboard
         </Link>
+        <Link href="/admin/receipt" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
+          New Receipt
+        </Link>
         <Link href="/admin/settings" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Settings
         </Link>

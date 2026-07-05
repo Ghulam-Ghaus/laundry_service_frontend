@@ -20,7 +20,10 @@ export default function AdminSettings() {
         // Map list to form state
         const values: Record<string, string> = {};
         list.forEach((item) => {
-          values[item.key_name] = item.key_value;
+          const key = item.setting_key || item.key_name;
+          if (key) {
+            values[key] = item.setting_value !== undefined ? item.setting_value : (item.key_value || '');
+          }
         });
         setFormData(values);
       } catch (err: any) {
@@ -85,6 +88,9 @@ export default function AdminSettings() {
         <Link href="/admin" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Orders Dashboard
         </Link>
+        <Link href="/admin/receipt" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
+          New Receipt
+        </Link>
         <Link href="/admin/settings" className="text-sm font-bold text-[#cca43b] border-b-2 border-[#cca43b] pb-2 px-1">
           Settings
         </Link>
@@ -103,23 +109,27 @@ export default function AdminSettings() {
         </h2>
 
         <form onSubmit={handleFormSubmit} className="space-y-6 text-xs text-gray-500">
-          {settingsList.map((item) => (
-            <div key={item.id} className="space-y-1.5">
-              <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                {item.key_name.replace(/_/g, ' ')}
-              </label>
-              <input
-                type="text"
-                required
-                value={formData[item.key_name] || ''}
-                onChange={(e) => handleInputChange(item.key_name, e.target.value)}
-                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#cca43b] text-xs bg-white text-gray-800"
-              />
-              <p className="text-[10px] text-gray-400">
-                {item.description || 'System-wide configuration value.'}
-              </p>
-            </div>
-          ))}
+          {settingsList.map((item) => {
+            const key = item.setting_key || item.key_name;
+            if (!key) return null;
+            return (
+              <div key={item.id} className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                  {key.replace(/_/g, ' ')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData[key] || ''}
+                  onChange={(e) => handleInputChange(key, e.target.value)}
+                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#cca43b] text-xs bg-white text-gray-800"
+                />
+                <p className="text-[10px] text-gray-400">
+                  {item.description || 'System-wide configuration value.'}
+                </p>
+              </div>
+            );
+          })}
 
           <button
             type="submit"

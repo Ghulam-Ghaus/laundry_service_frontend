@@ -9,15 +9,29 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     setIsLoggedIn(!!token);
+    if (token) {
+      const storedUser = localStorage.getItem('logged_in_user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          setUser(null);
+        }
+      }
+    } else {
+      setUser(null);
+    }
   }, [pathname]);
 
   const handleLogout = () => {
     authApi.logout();
     setIsLoggedIn(false);
+    setUser(null);
     router.push('/');
   };
 
@@ -95,8 +109,18 @@ export default function Header() {
         <div className="flex items-center gap-5">
           {isLoggedIn ? (
             <>
+              {user && (
+                <span className="text-[10px] text-slate-400 font-medium hidden sm:inline border-r pr-3 border-slate-100">
+                  Hi, <span className="font-bold text-slate-700">{user.first_name || user.display_name}</span>
+                  {user.roles?.includes('admin') && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[8px] font-bold uppercase tracking-wider">
+                      Admin
+                    </span>
+                  )}
+                </span>
+              )}
               <Link
-                href="/account"
+                href={user?.roles?.includes('admin') || user?.roles?.includes('super_admin') ? "/admin" : "/account"}
                 className="text-xs font-bold text-slate-600 hover:text-[#e07a5f] transition-colors"
               >
                 Account
