@@ -50,6 +50,14 @@ export const adminApi = {
   },
 
   // --- Catalog CRUD ---
+  async getCategories(): Promise<any[]> {
+    return httpClient.get<any[]>('/admin/catalog/categories');
+  },
+
+  async getCategoryItems(categoryId: string): Promise<any[]> {
+    return httpClient.get<any[]>(`/admin/catalog/categories/${categoryId}/items`);
+  },
+
   async createCategory(data: { code: string; name: string; description?: string; sortOrder?: number }): Promise<ServiceCategory> {
     return httpClient.post<ServiceCategory>('/admin/catalog/categories', data);
   },
@@ -98,6 +106,34 @@ export const adminApi = {
 
   async updateSettings(payload: Record<string, any>): Promise<{ message: string }> {
     return httpClient.post<{ message: string }>('/admin/settings', payload);
+  },
+
+  // --- Service Options ---
+  async getServiceOptions(): Promise<any[]> {
+    return httpClient.get<any[]>('/admin/catalog/service-options');
+  },
+
+  async createServiceOption(data: { code: string; name: string; description?: string }): Promise<any> {
+    return httpClient.post<any>('/admin/catalog/service-options', data);
+  },
+
+  async updateServiceOption(id: string, data: Partial<{ code: string; name: string; description: string; is_active: boolean }>): Promise<any> {
+    return httpClient.patch<any>(`/admin/catalog/service-options/${id}`, data);
+  },
+
+  async deleteServiceOption(id: string): Promise<void> {
+    return httpClient.delete<void>(`/admin/catalog/service-options/${id}`);
+  },
+
+  // --- Users & Staff Management ---
+  async getUsers(page = 1, limit = 20): Promise<any> {
+    return httpClient.get<any>('/admin/users', {
+      params: { page: page.toString(), limit: limit.toString() }
+    });
+  },
+
+  async createStaff(data: { email: string; phone?: string; firstName: string; lastName?: string; roleCode: string }): Promise<any> {
+    return httpClient.post<any>('/admin/users/staff', data);
   },
 
   // --- Audit Logs ---
