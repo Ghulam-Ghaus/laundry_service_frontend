@@ -11,7 +11,7 @@ export default function AdminDashboard() {
 
   // Instant local filters state
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'pickup' | 'pos'>('pickup');
+  const [activeTab, setActiveTab] = useState<'pickup' | 'pos'>('pos');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'overdue' | 'upcoming' | 'previous'>('all');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -80,13 +80,21 @@ export default function AdminDashboard() {
     return new Date(metaDate);
   };
 
-  const statusOptions = [
-    { code: 'pending_confirmation', label: 'Pending' },
-    { code: 'pickup_assigned', label: 'Rider Dispatched' },
-    { code: 'received_at_facility', label: 'Received' },
+  const posStatusOptions = [
+    { code: 'draft', label: 'Received/Draft' },
     { code: 'cleaning', label: 'Cleaning' },
-    { code: 'ready_for_delivery', label: 'Ready' },
-    { code: 'delivered', label: 'Delivered' },
+    { code: 'ready_for_delivery', label: 'Ready for Pickup' },
+    { code: 'delivered', label: 'Completed/Collected' },
+    { code: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const pickupStatusOptions = [
+    { code: 'pending_confirmation', label: 'Pending Confirmation' },
+    { code: 'pickup_assigned', label: 'Rider Dispatched' },
+    { code: 'received_at_facility', label: 'Received at Facility' },
+    { code: 'cleaning', label: 'Cleaning' },
+    { code: 'ready_for_delivery', label: 'Ready for Delivery' },
+    { code: 'delivered', label: 'Delivered/Completed' },
     { code: 'cancelled', label: 'Cancelled' },
   ];
 
@@ -107,35 +115,30 @@ export default function AdminDashboard() {
   let pickupUpcoming = 0;
 
   orders.forEach((o) => {
-    const isPOS = o.customer_id === null;
+    const isPOS = o.order_type === 'pos';
+    const createdAtDate = new Date(o.created_at);
     const targetDate = getOrderTargetDate(o);
     const deliveryDate = getOrderDeliveryDate(o);
     const statusCode = o.status?.code || '';
     const isFinalStatus = ['delivered', 'completed', 'cancelled', 'failed'].includes(statusCode);
 
-    // Is it Today?
-    const isTodayOrder = targetDate >= startOfToday && targetDate <= endOfToday;
+    // Is it Today Received? (created today)
+    const isTodayReceived = createdAtDate >= startOfToday && createdAtDate <= endOfToday;
+    // Is it Today Ready? (status is ready AND delivery date is today)
+    const isTodayReady = (statusCode === 'ready_for_delivery') && (deliveryDate >= startOfToday && deliveryDate <= endOfToday);
     // Is it Overdue? (delivery date in past, not completed/delivered/cancelled/failed)
     const isOverdueOrder = deliveryDate < startOfToday && !isFinalStatus;
-    // Is it Upcoming? (target date in the future, not finalized)
-    const isUpcomingOrder = targetDate > endOfToday && !isFinalStatus;
-
-    // Status groups
-    const isReceived = ['pending_confirmation', 'confirmed', 'received_at_facility', 'cleaning', 'pickup_assigned'].includes(statusCode);
-    const isReady = statusCode === 'ready_for_delivery';
+    // Is it Upcoming? (delivery date is in the future, not finalized)
+    const isUpcomingOrder = deliveryDate > endOfToday && !isFinalStatus;
 
     if (isPOS) {
-      if (isTodayOrder) {
-        if (isReady) posTodayReady++;
-        else if (isReceived) posTodayReceived++;
-      }
+      if (isTodayReceived) posTodayReceived++;
+      if (isTodayReady) posTodayReady++;
       if (isOverdueOrder) posOverdue++;
       if (isUpcomingOrder) posUpcoming++;
     } else {
-      if (isTodayOrder) {
-        if (isReady) pickupTodayReady++;
-        else if (isReceived) pickupTodayReceived++;
-      }
+      if (isTodayReceived) pickupTodayReceived++;
+      if (isTodayReady) pickupTodayReady++;
       if (isOverdueOrder) pickupOverdue++;
       if (isUpcomingOrder) pickupUpcoming++;
     }
@@ -145,10 +148,11 @@ export default function AdminDashboard() {
 
   // 1. Tab source filtering
   processedOrders = processedOrders.filter((o) => {
+    const isPOS = o.order_type === 'pos';
     if (activeTab === 'pickup') {
-      return o.customer_id !== null;
+      return !isPOS;
     } else {
-      return o.customer_id === null;
+      return isPOS;
     }
   });
 
@@ -225,12 +229,6 @@ export default function AdminDashboard() {
         <Link href="/admin/settings" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Settings
         </Link>
-        <Link href="/admin/audit-logs" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Audit Logs
-        </Link>
-        <Link href="/admin/trash" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Trash Bin
-        </Link>
       </div>
 
       {/* Inline error banner for partial failures */}
@@ -299,20 +297,6 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={() => {
-              setActiveTab('pickup');
-              setDateFilter('all');
-            }}
-            className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-              activeTab === 'pickup'
-                ? 'border-[#cca43b] text-[#cca43b]'
-                : 'border-transparent text-gray-400 hover:text-gray-650'
-            }`}
-          >
-            Pickup Orders ({orders.filter(o => o.customer_id !== null).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
               setActiveTab('pos');
               setDateFilter('all');
             }}
@@ -322,7 +306,21 @@ export default function AdminDashboard() {
                 : 'border-transparent text-gray-400 hover:text-gray-650'
             }`}
           >
-            POS Receipts ({orders.filter(o => o.customer_id === null).length})
+            POS Receipts ({orders.filter(o => o.metadata?.order_type === 'pos' || o.customer_id === null).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('pickup');
+              setDateFilter('all');
+            }}
+            className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+              activeTab === 'pickup'
+                ? 'border-[#cca43b] text-[#cca43b]'
+                : 'border-transparent text-gray-400 hover:text-gray-650'
+            }`}
+          >
+            Pickup Orders ({orders.filter(o => o.metadata?.order_type === 'pickup' || (o.metadata?.order_type !== 'pos' && o.customer_id !== null)).length})
           </button>
         </div>
 
@@ -352,7 +350,7 @@ export default function AdminDashboard() {
                 className="px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white focus:outline-none text-gray-800"
               >
                 <option value="">All Statuses</option>
-                {statusOptions.map((opt) => (
+                {(activeTab === 'pos' ? posStatusOptions : pickupStatusOptions).map((opt) => (
                   <option key={opt.code} value={opt.code}>{opt.label}</option>
                 ))}
               </select>
@@ -371,8 +369,9 @@ export default function AdminDashboard() {
               // Count for this filter item (calculated dynamically for the currently active tab)
               const count = orders.filter((o) => {
                 // Tab filter
-                if (activeTab === 'pickup' && o.customer_id === null) return false;
-                if (activeTab === 'pos' && o.customer_id !== null) return false;
+                const isPOS = o.metadata?.order_type === 'pos' || o.customer_id === null;
+                if (activeTab === 'pickup' && isPOS) return false;
+                if (activeTab === 'pos' && !isPOS) return false;
                 // Date filter
                 if (f.code === 'all') return true;
                 const targetDate = getOrderTargetDate(o);
@@ -437,12 +436,28 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="py-4 text-gray-650">
-                    <span className="font-semibold block">
-                      In: {new Date(getOrderTargetDate(o)).toLocaleDateString()}
-                    </span>
-                    <span className="text-[10px] text-gray-400 block font-semibold">
-                      Out: {new Date(getOrderDeliveryDate(o)).toLocaleDateString()}
-                    </span>
+                    {activeTab === 'pos' ? (
+                      <>
+                        <span className="font-semibold block text-amber-800 bg-amber-50/50 border border-amber-100/50 px-2 py-0.5 rounded-lg text-[10px] w-fit mb-1">
+                          Self Drop/Pickup
+                        </span>
+                        <span className="font-semibold block">
+                          In: {new Date(getOrderTargetDate(o)).toLocaleDateString()}
+                        </span>
+                        <span className="text-[10px] text-gray-400 block font-semibold">
+                          Out: {new Date(getOrderDeliveryDate(o)).toLocaleDateString()}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-semibold block">
+                          In: {new Date(getOrderTargetDate(o)).toLocaleDateString()}
+                        </span>
+                        <span className="text-[10px] text-gray-400 block font-semibold">
+                          Out: {new Date(getOrderDeliveryDate(o)).toLocaleDateString()}
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td className="py-4 font-bold text-[#cca43b]">PKR {o.grand_total}</td>
                   <td className="py-4">
@@ -451,18 +466,24 @@ export default function AdminDashboard() {
                       onChange={(e) => handleStatusChange(o.id, e.target.value)}
                       className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-[10px] bg-white focus:outline-none text-gray-800 font-medium cursor-pointer"
                     >
-                      {statusOptions.map((opt) => (
+                      {(activeTab === 'pos' ? posStatusOptions : pickupStatusOptions).map((opt) => (
                         <option key={opt.code} value={opt.code}>{opt.label}</option>
                       ))}
                     </select>
                   </td>
                   <td className="py-4 text-right">
-                    <button
-                      onClick={() => setAssigningOrderId(o.id)}
-                      className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-[#cca43b] hover:text-black transition-colors font-semibold border border-gray-100 cursor-pointer"
-                    >
-                      Assign Rider
-                    </button>
+                    {activeTab === 'pickup' ? (
+                      <button
+                        onClick={() => setAssigningOrderId(o.id)}
+                        className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-[#cca43b] hover:text-black transition-colors font-semibold border border-gray-100 cursor-pointer"
+                      >
+                        Assign Rider
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                        In-Store Walk-In
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

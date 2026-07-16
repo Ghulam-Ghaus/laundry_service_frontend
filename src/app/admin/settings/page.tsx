@@ -7,7 +7,7 @@ import { catalogApi } from '@/lib/api/catalog.api';
 
 export default function AdminSettings() {
   // Navigation & UI state
-  const [activeTab, setActiveTab] = useState<'system' | 'categories' | 'items' | 'options' | 'pricing' | 'riders'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'categories' | 'items' | 'options' | 'pricing' | 'riders'>('options');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -19,18 +19,18 @@ export default function AdminSettings() {
 
   // Categories CRUD state
   const [categories, setCategories] = useState<any[]>([]);
-  const [categoryForm, setCategoryForm] = useState({ id: '', code: '', name: '', description: '', sortOrder: 0, isActive: true });
+  const [categoryForm, setCategoryForm] = useState({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true });
   const [savingCategory, setSavingCategory] = useState(false);
 
   // Items CRUD state
   const [items, setItems] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [itemForm, setItemForm] = useState({ id: '', categoryId: '', code: '', name: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true });
+  const [itemForm, setItemForm] = useState({ id: '', categoryId: '', code: '', nameEng: '', nameUrdu: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true });
   const [savingItem, setSavingItem] = useState(false);
 
   // Service Options CRUD state
   const [options, setOptions] = useState<any[]>([]);
-  const [optionForm, setOptionForm] = useState({ id: '', code: '', name: '', description: '', isActive: true });
+  const [optionForm, setOptionForm] = useState({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true });
   const [savingOption, setSavingOption] = useState(false);
 
   // Pricing state
@@ -149,10 +149,14 @@ export default function AdminSettings() {
     e.preventDefault();
     setSavingCategory(true);
     try {
+      const combinedName = categoryForm.nameUrdu.trim()
+        ? `${categoryForm.nameEng.trim()} / ${categoryForm.nameUrdu.trim()}`
+        : categoryForm.nameEng.trim();
+
       if (categoryForm.id) {
         await adminApi.updateCategory(categoryForm.id, {
           code: categoryForm.code,
-          name: categoryForm.name,
+          name: combinedName,
           description: categoryForm.description,
           sort_order: Number(categoryForm.sortOrder),
           is_active: categoryForm.isActive,
@@ -161,13 +165,13 @@ export default function AdminSettings() {
       } else {
         await adminApi.createCategory({
           code: categoryForm.code,
-          name: categoryForm.name,
+          name: combinedName,
           description: categoryForm.description,
           sortOrder: Number(categoryForm.sortOrder),
         });
         showNotification('Category created successfully!');
       }
-      setCategoryForm({ id: '', code: '', name: '', description: '', sortOrder: 0, isActive: true });
+      setCategoryForm({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true });
       loadTabContent();
     } catch (err: any) {
       showNotification(err.message || 'Failed to save category.', true);
@@ -192,17 +196,21 @@ export default function AdminSettings() {
     e.preventDefault();
     setSavingItem(true);
     try {
+      const combinedName = itemForm.nameUrdu.trim()
+        ? `${itemForm.nameEng.trim()} / ${itemForm.nameUrdu.trim()}`
+        : itemForm.nameEng.trim();
+
       const payload = {
         categoryId: itemForm.categoryId || selectedCategoryId,
         code: itemForm.code,
-        name: itemForm.name,
+        name: combinedName,
         description: itemForm.description,
         unitLabel: itemForm.unitLabel,
         minQuantity: Number(itemForm.minQuantity),
         sortOrder: Number(itemForm.sortOrder),
         is_active: itemForm.isActive,
       };
-
+ 
       if (itemForm.id) {
         await adminApi.updateItem(itemForm.id, payload);
         showNotification('Catalog item updated successfully!');
@@ -210,7 +218,7 @@ export default function AdminSettings() {
         await adminApi.createItem(payload);
         showNotification('Catalog item created successfully!');
       }
-      setItemForm({ id: '', categoryId: '', code: '', name: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true });
+      setItemForm({ id: '', categoryId: '', code: '', nameEng: '', nameUrdu: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true });
       loadCategoryItems(selectedCategoryId);
     } catch (err: any) {
       showNotification(err.message || 'Failed to save catalog item.', true);
@@ -235,23 +243,29 @@ export default function AdminSettings() {
     e.preventDefault();
     setSavingOption(true);
     try {
+      const combinedName = optionForm.nameUrdu.trim()
+        ? `${optionForm.nameEng.trim()} / ${optionForm.nameUrdu.trim()}`
+        : optionForm.nameEng.trim();
+
       if (optionForm.id) {
         await adminApi.updateServiceOption(optionForm.id, {
           code: optionForm.code,
-          name: optionForm.name,
+          name: combinedName,
           description: optionForm.description,
+          sortOrder: Number(optionForm.sortOrder),
           is_active: optionForm.isActive,
         });
         showNotification('Service option updated successfully!');
       } else {
         await adminApi.createServiceOption({
           code: optionForm.code,
-          name: optionForm.name,
+          name: combinedName,
           description: optionForm.description,
+          sortOrder: Number(optionForm.sortOrder),
         });
         showNotification('Service option created successfully!');
       }
-      setOptionForm({ id: '', code: '', name: '', description: '', isActive: true });
+      setOptionForm({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true });
       loadTabContent();
     } catch (err: any) {
       showNotification(err.message || 'Failed to save service option.', true);
@@ -324,28 +338,22 @@ export default function AdminSettings() {
         <Link href="/admin/settings" className="text-sm font-bold text-[#cca43b] border-b-2 border-[#cca43b] pb-2 px-1">
           Settings
         </Link>
-        <Link href="/admin/audit-logs" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Audit Logs
-        </Link>
-        <Link href="/admin/trash" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Trash Bin
-        </Link>
       </div>
 
       {/* Sub tabs configuration menu bar */}
-      <div className="flex flex-wrap gap-2.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-100/70 text-xs font-semibold text-slate-500 max-w-4xl">
+      <div className="flex gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100/70 text-xs font-semibold text-slate-500 max-w-5xl">
         {[
-          { code: 'system', label: '⚙️ System Variables' },
-          { code: 'categories', label: '📂 Categories' },
-          { code: 'items', label: '👕 Catalog Items' },
-          { code: 'options', label: '⚡ Service Options' },
-          { code: 'pricing', label: '💰 Pricing Matrix' },
-          { code: 'riders', label: '🚴 Rider Staff Accounts' },
+          { code: 'options', label: 'Service Options / سروس آپشنز' },
+          { code: 'categories', label: 'Categories / کیٹیگریز' },
+          { code: 'items', label: 'Catalog Items / اشیاء' },
+          { code: 'pricing', label: 'Pricing Matrix / قیمتیں' },
+          { code: 'system', label: 'System Variables / سسٹم متغیرات' },
+          { code: 'riders', label: 'Rider Staff / رائیڈرز' },
         ].map((tab) => (
           <button
             key={tab.code}
             onClick={() => setActiveTab(tab.code as any)}
-            className={`px-4.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl transition-all duration-305 cursor-pointer whitespace-nowrap ${
               activeTab === tab.code
                 ? 'bg-white text-slate-900 shadow-sm border border-slate-150/50 font-bold'
                 : 'hover:bg-slate-100 hover:text-slate-700'
@@ -425,7 +433,6 @@ export default function AdminSettings() {
                   <table className="w-full text-left text-xs text-slate-650 border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100 uppercase text-[10px] font-bold text-slate-400">
-                        <th className="p-4">Code</th>
                         <th className="p-4">Name</th>
                         <th className="p-4">Sort</th>
                         <th className="p-4">Status</th>
@@ -435,7 +442,6 @@ export default function AdminSettings() {
                     <tbody className="divide-y divide-slate-100">
                       {categories.map((cat) => (
                         <tr key={cat.id} className="hover:bg-slate-50/50">
-                          <td className="p-4 font-mono font-bold text-slate-800">{cat.code}</td>
                           <td className="p-4 font-semibold text-slate-700">{cat.name}</td>
                           <td className="p-4">{cat.sort_order}</td>
                           <td className="p-4">
@@ -445,7 +451,10 @@ export default function AdminSettings() {
                           </td>
                           <td className="p-4 text-right space-x-2">
                             <button
-                              onClick={() => setCategoryForm({ id: cat.id, code: cat.code, name: cat.name, description: cat.description || '', sortOrder: cat.sort_order, isActive: cat.is_active })}
+                              onClick={() => {
+                                const parts = cat.name.split(' / ');
+                                setCategoryForm({ id: cat.id, code: cat.code, nameEng: parts[0] || '', nameUrdu: parts[1] || '', description: cat.description || '', sortOrder: cat.sort_order, isActive: cat.is_active });
+                              }}
                               className="text-blue-600 font-bold hover:underline"
                             >
                               Edit
@@ -481,14 +490,25 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">English Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Wash & Fold"
-                      value={categoryForm.name}
-                      onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                      value={categoryForm.nameEng}
+                      onChange={(e) => setCategoryForm(prev => ({ ...prev, nameEng: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Urdu Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. دھلائی اور استری"
+                      value={categoryForm.nameUrdu}
+                      onChange={(e) => setCategoryForm(prev => ({ ...prev, nameUrdu: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-right font-semibold font-sans"
+                      dir="rtl"
                     />
                   </div>
                   <div className="space-y-1">
@@ -532,7 +552,7 @@ export default function AdminSettings() {
                     {categoryForm.id && (
                       <button
                         type="button"
-                        onClick={() => setCategoryForm({ id: '', code: '', name: '', description: '', sortOrder: 0, isActive: true })}
+                        onClick={() => setCategoryForm({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true })}
                         className="py-2.5 px-4 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 font-bold"
                       >
                         Cancel
@@ -565,8 +585,7 @@ export default function AdminSettings() {
                   <table className="w-full text-left text-xs text-slate-650 border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100 uppercase text-[10px] font-bold text-slate-400">
-                        <th className="p-4">Code</th>
-                        <th className="p-4">Name</th>
+                        <th className="p-4">Item Name</th>
                         <th className="p-4">Unit</th>
                         <th className="p-4">Min Qty</th>
                         <th className="p-4">Status</th>
@@ -576,10 +595,9 @@ export default function AdminSettings() {
                     <tbody className="divide-y divide-slate-100">
                       {items.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
-                          <td className="p-4 font-mono font-bold text-slate-800">{item.code}</td>
                           <td className="p-4 font-semibold text-slate-700">{item.name}</td>
-                          <td className="p-4">{item.unit_label}</td>
-                          <td className="p-4">{item.min_quantity}</td>
+                          <td className="p-4 text-slate-500">{item.unit_label}</td>
+                          <td className="p-4 text-slate-500">{item.min_quantity}</td>
                           <td className="p-4">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${item.is_active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                               {item.is_active ? 'Active' : 'Inactive'}
@@ -587,7 +605,10 @@ export default function AdminSettings() {
                           </td>
                           <td className="p-4 text-right space-x-2">
                             <button
-                              onClick={() => setItemForm({ id: item.id, categoryId: item.category_id, code: item.code, name: item.name, description: item.description || '', unitLabel: item.unit_label, minQuantity: item.min_quantity, sortOrder: item.sort_order, isActive: item.is_active })}
+                              onClick={() => {
+                                const parts = item.name.split(' / ');
+                                setItemForm({ id: item.id, categoryId: item.category_id, code: item.code, nameEng: parts[0] || '', nameUrdu: parts[1] || '', description: item.description || '', unitLabel: item.unit_label, minQuantity: item.min_quantity, sortOrder: item.sort_order, isActive: item.is_active });
+                              }}
                               className="text-blue-600 font-bold hover:underline"
                             >
                               Edit
@@ -642,14 +663,25 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">English Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Gents Shirt"
-                      value={itemForm.name}
-                      onChange={(e) => setItemForm(prev => ({ ...prev, name: e.target.value }))}
+                      value={itemForm.nameEng}
+                      onChange={(e) => setItemForm(prev => ({ ...prev, nameEng: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Urdu Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. مردانہ شرٹ"
+                      value={itemForm.nameUrdu}
+                      onChange={(e) => setItemForm(prev => ({ ...prev, nameUrdu: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-right font-semibold font-sans"
+                      dir="rtl"
                     />
                   </div>
                   <div className="space-y-1">
@@ -715,7 +747,7 @@ export default function AdminSettings() {
                     {itemForm.id && (
                       <button
                         type="button"
-                        onClick={() => setItemForm({ id: '', categoryId: '', code: '', name: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true })}
+                        onClick={() => setItemForm({ id: '', categoryId: '', code: '', nameEng: '', nameUrdu: '', description: '', unitLabel: 'item', minQuantity: 1, sortOrder: 0, isActive: true })}
                         className="py-2.5 px-4 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 font-bold"
                       >
                         Cancel
@@ -737,9 +769,9 @@ export default function AdminSettings() {
                   <table className="w-full text-left text-xs text-slate-650 border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-100 uppercase text-[10px] font-bold text-slate-400">
-                        <th className="p-4">Code</th>
                         <th className="p-4">Option Name</th>
                         <th className="p-4">Description</th>
+                        <th className="p-4">Sort</th>
                         <th className="p-4">Status</th>
                         <th className="p-4 text-right">Actions</th>
                       </tr>
@@ -747,9 +779,9 @@ export default function AdminSettings() {
                     <tbody className="divide-y divide-slate-100">
                       {options.map((opt) => (
                         <tr key={opt.id} className="hover:bg-slate-50/50">
-                          <td className="p-4 font-mono font-bold text-slate-800">{opt.code}</td>
                           <td className="p-4 font-semibold text-slate-700">{opt.name}</td>
                           <td className="p-4 text-slate-500 max-w-[200px] truncate">{opt.description || 'N/A'}</td>
+                          <td className="p-4 font-bold text-slate-600">{opt.sort_order || 0}</td>
                           <td className="p-4">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${opt.is_active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                               {opt.is_active ? 'Active' : 'Inactive'}
@@ -757,7 +789,10 @@ export default function AdminSettings() {
                           </td>
                           <td className="p-4 text-right space-x-2">
                             <button
-                              onClick={() => setOptionForm({ id: opt.id, code: opt.code, name: opt.name, description: opt.description || '', isActive: opt.is_active })}
+                              onClick={() => {
+                                const parts = opt.name.split(' / ');
+                                setOptionForm({ id: opt.id, code: opt.code, nameEng: parts[0] || '', nameUrdu: parts[1] || '', description: opt.description || '', sortOrder: opt.sort_order || 0, isActive: opt.is_active });
+                              }}
                               className="text-blue-600 font-bold hover:underline"
                             >
                               Edit
@@ -793,14 +828,25 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Name</label>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">English Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Steam Ironing"
-                      value={optionForm.name}
-                      onChange={(e) => setOptionForm(prev => ({ ...prev, name: e.target.value }))}
+                      value={optionForm.nameEng}
+                      onChange={(e) => setOptionForm(prev => ({ ...prev, nameEng: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Urdu Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. اسٹیم استری"
+                      value={optionForm.nameUrdu}
+                      onChange={(e) => setOptionForm(prev => ({ ...prev, nameUrdu: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-right font-semibold font-sans"
+                      dir="rtl"
                     />
                   </div>
                   <div className="space-y-1">
@@ -810,6 +856,16 @@ export default function AdminSettings() {
                       value={optionForm.description}
                       onChange={(e) => setOptionForm(prev => ({ ...prev, description: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white h-20"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Sort Order</label>
+                    <input
+                      type="number"
+                      required
+                      value={optionForm.sortOrder}
+                      onChange={(e) => setOptionForm(prev => ({ ...prev, sortOrder: Number(e.target.value) }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"
                     />
                   </div>
                   {optionForm.id && (
@@ -834,7 +890,7 @@ export default function AdminSettings() {
                     {optionForm.id && (
                       <button
                         type="button"
-                        onClick={() => setOptionForm({ id: '', code: '', name: '', description: '', isActive: true })}
+                        onClick={() => setOptionForm({ id: '', code: '', nameEng: '', nameUrdu: '', description: '', sortOrder: 0, isActive: true })}
                         className="py-2.5 px-4 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 font-bold"
                       >
                         Cancel
@@ -861,7 +917,6 @@ export default function AdminSettings() {
                           <div key={item.id} className="pt-2.5 pb-2 flex flex-wrap items-center justify-between gap-2">
                             <div>
                               <span className="font-bold text-slate-700 text-xs">{item.name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono ml-2">({item.code})</span>
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {item.prices && item.prices.length > 0 ? (
@@ -903,7 +958,7 @@ export default function AdminSettings() {
                       {fullCatalog.map((cat: any) => (
                         <optgroup key={cat.id} label={cat.name}>
                           {cat.items?.map((item: any) => (
-                            <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
+                            <option key={item.id} value={item.id}>{item.name}</option>
                           ))}
                         </optgroup>
                       ))}
@@ -919,7 +974,7 @@ export default function AdminSettings() {
                     >
                       <option value="">Choose Service Mode</option>
                       {options.map((opt) => (
-                        <option key={opt.id} value={opt.id}>{opt.name} ({opt.code})</option>
+                        <option key={opt.id} value={opt.id}>{opt.name}</option>
                       ))}
                     </select>
                   </div>

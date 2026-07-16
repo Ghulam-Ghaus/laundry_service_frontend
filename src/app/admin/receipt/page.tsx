@@ -47,6 +47,10 @@ export default function AdminReceipt() {
     order_date: formatLocalDateTime(new Date()),
     delivery_date: formatLocalDateTime(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
   });
+
+  const orderType = 'pos';
+  const [isCustomerFound, setIsCustomerFound] = useState(false);
+  const [isSearchingPhone, setIsSearchingPhone] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +101,34 @@ export default function AdminReceipt() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, phone: val }));
+
+    const cleanPhone = val.replace(/[^0-9]/g, '');
+    if (cleanPhone.length >= 10) {
+      setIsSearchingPhone(true);
+      try {
+        const user = await httpClient.get<any>(`/admin/users/by-phone/${cleanPhone}`);
+        if (user && user.id) {
+          setForm((prev) => ({
+            ...prev,
+            customer_name: `${user.first_name} ${user.last_name || ''}`.trim(),
+          }));
+          setIsCustomerFound(true);
+        } else {
+          setIsCustomerFound(false);
+        }
+      } catch {
+        setIsCustomerFound(false);
+      } finally {
+        setIsSearchingPhone(false);
+      }
+    } else {
+      setIsCustomerFound(false);
+    }
+  };
+
   const handleQtyChange = (itemId: string, optionId: string, delta: number) => {
     const key = `${itemId}_${optionId}`;
     setSelectedItems((prev) => {
@@ -121,18 +153,8 @@ export default function AdminReceipt() {
       setError('Phone number is required');
       return false;
     }
-    if (!form.order_date) {
-      setError('Order date is required');
-      return false;
-    }
     if (!form.delivery_date) {
-      setError('Expected delivery date is required');
-      return false;
-    }
-    const orderDate = new Date(form.order_date);
-    const deliveryDate = new Date(form.delivery_date);
-    if (deliveryDate < orderDate) {
-      setError('Expected delivery date must be the same day or after order date');
+      setError('Expected ready date is required');
       return false;
     }
     setError(null);
@@ -178,7 +200,7 @@ export default function AdminReceipt() {
     const payload = {
       customerName: form.customer_name,
       phone: form.phone,
-      orderDate: form.order_date,
+      orderDate: formatLocalDateTime(new Date()),
       deliveryDate: form.delivery_date,
       categoryId: selectedCategoryId,
       items: itemsPayload,
@@ -195,13 +217,14 @@ export default function AdminReceipt() {
         orderNumber: res.orderNumber,
         customerName: form.customer_name,
         phone: form.phone,
-        orderDate: form.order_date,
+        orderDate: formatLocalDateTime(new Date()),
         deliveryDate: form.delivery_date,
         items: selectedItemsList,
         subtotal: subtotal,
         discount: parsedDiscount,
         grandTotal: finalGrandTotal,
         notes: notes,
+        orderType: 'pos',
       });
 
       setShouldAutoPrint(true);
@@ -379,12 +402,6 @@ export default function AdminReceipt() {
         <Link href="/admin/settings" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
           Settings
         </Link>
-        <Link href="/admin/audit-logs" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Audit Logs
-        </Link>
-        <Link href="/admin/trash" className="text-sm font-medium text-gray-500 hover:text-[#cca43b] pb-2 px-1">
-          Trash Bin
-        </Link>
       </div>
 
       {/* Editor Panel */}
@@ -413,6 +430,33 @@ export default function AdminReceipt() {
             <div className="space-y-6 no-print">
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="phone"
+                    required
+                    placeholder="e.g. 03001234567"
+                    value={form.phone}
+                    onChange={handlePhoneChange}
+                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#cca43b] text-xs bg-white text-gray-800"
+                  />
+                  {isSearchingPhone && (
+                    <span className="absolute right-3.5 top-3.5 text-[9px] text-[#cca43b] font-bold animate-pulse">
+                      Searching...
+                    </span>
+                  )}
+                </div>
+                {isCustomerFound && (
+                  <span className="text-[10px] text-green-600 font-extrabold block">
+                    ✓ Registered Customer Found! Name auto-filled.
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
                   Customer Name
                 </label>
                 <input
@@ -426,38 +470,10 @@ export default function AdminReceipt() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                  Phone Number
-                </label>
-                <input
-                  type="text"
-                  name="phone"
-                  required
-                  placeholder="e.g. 03001234567"
-                  value={form.phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#cca43b] text-xs bg-white text-gray-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                    Order Date & Time
-                  </label>
-                  <input
-                    type="datetime-local"
-                    name="order_date"
-                    required
-                    value={form.order_date}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#cca43b] text-xs bg-white text-gray-800"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
-                    Expected Delivery Date & Time
+                    Expected Ready Date & Time
                   </label>
                   <input
                     type="datetime-local"
@@ -474,9 +490,13 @@ export default function AdminReceipt() {
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  disabled={!form.customer_name.trim() || !form.phone.trim() || !form.order_date || !form.delivery_date}
+                  disabled={
+                    !form.customer_name.trim() || 
+                    !form.phone.trim() || 
+                    !form.delivery_date
+                  }
                   className={`w-full sm:w-auto px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all text-center ${
-                    (!form.customer_name.trim() || !form.phone.trim() || !form.order_date || !form.delivery_date)
+                    (!form.customer_name.trim() || !form.phone.trim() || !form.delivery_date)
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
                       : 'text-black bg-[#cca43b] hover:bg-[#e0b84c] shadow-lg shadow-[#cca43b]/10 cursor-pointer'
                   }`}

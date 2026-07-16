@@ -113,11 +113,11 @@ export const adminApi = {
     return httpClient.get<any[]>('/admin/catalog/service-options');
   },
 
-  async createServiceOption(data: { code: string; name: string; description?: string }): Promise<any> {
+  async createServiceOption(data: { code: string; name: string; description?: string; sortOrder?: number }): Promise<any> {
     return httpClient.post<any>('/admin/catalog/service-options', data);
   },
 
-  async updateServiceOption(id: string, data: Partial<{ code: string; name: string; description: string; is_active: boolean }>): Promise<any> {
+  async updateServiceOption(id: string, data: Partial<{ code: string; name: string; description: string; sortOrder: number; is_active: boolean }>): Promise<any> {
     return httpClient.patch<any>(`/admin/catalog/service-options/${id}`, data);
   },
 
