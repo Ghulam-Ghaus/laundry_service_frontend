@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { adminApi } from '@/lib/api/admin.api';
 
 export default function AdminDashboard() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [posOrders, setPosOrders] = useState<any[]>([]);
+  const [pickupOrders, setPickupOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,16 +21,34 @@ export default function AdminDashboard() {
   const [riderUserId, setRiderUserId] = useState('');
   const [taskTypeCode, setTaskTypeCode] = useState('pickup');
 
-  // Load orders lists
+  // Details Modal state
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const handleViewDetails = async (orderId: string) => {
+    setLoadingDetails(true);
+    try {
+      const details = await adminApi.getOrder(orderId);
+      setSelectedOrderDetails(details);
+    } catch (err: any) {
+      alert(err.message || 'Failed to load order details.');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // Load orders lists dynamically based on search and status filters
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError(null);
-      // Load orders (fetch first 200 to enable instant local filters & counts)
       try {
-        const ordersRes = await adminApi.getOrders(1, 200);
-        const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any).items || [];
-        setOrders(ordersList);
+        const [posRes, onlineRes] = await Promise.all([
+          adminApi.getPosOrders(1, 200, searchQuery || undefined, statusFilter || undefined),
+          adminApi.getPickupOrders(1, 200, searchQuery || undefined, statusFilter || undefined),
+        ]);
+        setPosOrders(Array.isArray(posRes) ? posRes : posRes?.items || []);
+        setPickupOrders(Array.isArray(onlineRes) ? onlineRes : onlineRes?.items || []);
       } catch (err: any) {
         setError(err.message || 'Access Denied or Database Connection Error.');
       } finally {
@@ -37,15 +56,18 @@ export default function AdminDashboard() {
       }
     }
     loadData();
-  }, []);
+  }, [searchQuery, statusFilter]);
 
   const handleStatusChange = async (orderId: string, newStatusCode: string) => {
     try {
       await adminApi.updateOrderStatus(orderId, newStatusCode);
       // Reload orders list
-      const ordersRes = await adminApi.getOrders(1, 200);
-      const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any).items || [];
-      setOrders(ordersList);
+      const [posRes, onlineRes] = await Promise.all([
+        adminApi.getPosOrders(1, 200, searchQuery || undefined, statusFilter || undefined),
+        adminApi.getPickupOrders(1, 200, searchQuery || undefined, statusFilter || undefined),
+      ]);
+      setPosOrders(Array.isArray(posRes) ? posRes : posRes?.items || []);
+      setPickupOrders(Array.isArray(onlineRes) ? onlineRes : onlineRes?.items || []);
     } catch (err: any) {
       alert(err.message || 'Status update failed.');
     }
@@ -114,8 +136,7 @@ export default function AdminDashboard() {
   let pickupOverdue = 0;
   let pickupUpcoming = 0;
 
-  orders.forEach((o) => {
-    const isPOS = o.order_type === 'pos';
+  posOrders.forEach((o) => {
     const createdAtDate = new Date(o.created_at);
     const targetDate = getOrderTargetDate(o);
     const deliveryDate = getOrderDeliveryDate(o);
@@ -131,30 +152,35 @@ export default function AdminDashboard() {
     // Is it Upcoming? (delivery date is in the future, not finalized)
     const isUpcomingOrder = deliveryDate > endOfToday && !isFinalStatus;
 
-    if (isPOS) {
-      if (isTodayReceived) posTodayReceived++;
-      if (isTodayReady) posTodayReady++;
-      if (isOverdueOrder) posOverdue++;
-      if (isUpcomingOrder) posUpcoming++;
-    } else {
-      if (isTodayReceived) pickupTodayReceived++;
-      if (isTodayReady) pickupTodayReady++;
-      if (isOverdueOrder) pickupOverdue++;
-      if (isUpcomingOrder) pickupUpcoming++;
-    }
+    if (isTodayReceived) posTodayReceived++;
+    if (isTodayReady) posTodayReady++;
+    if (isOverdueOrder) posOverdue++;
+    if (isUpcomingOrder) posUpcoming++;
   });
 
-  let processedOrders = orders;
+  pickupOrders.forEach((o) => {
+    const createdAtDate = new Date(o.created_at);
+    const targetDate = getOrderTargetDate(o);
+    const deliveryDate = getOrderDeliveryDate(o);
+    const statusCode = o.status?.code || '';
+    const isFinalStatus = ['delivered', 'completed', 'cancelled', 'failed'].includes(statusCode);
 
-  // 1. Tab source filtering
-  processedOrders = processedOrders.filter((o) => {
-    const isPOS = o.order_type === 'pos';
-    if (activeTab === 'pickup') {
-      return !isPOS;
-    } else {
-      return isPOS;
-    }
+    // Is it Today Received? (created today)
+    const isTodayReceived = createdAtDate >= startOfToday && createdAtDate <= endOfToday;
+    // Is it Today Ready? (status is ready AND delivery date is today)
+    const isTodayReady = (statusCode === 'ready_for_delivery') && (deliveryDate >= startOfToday && deliveryDate <= endOfToday);
+    // Is it Overdue? (delivery date in past, not completed/delivered/cancelled/failed)
+    const isOverdueOrder = deliveryDate < startOfToday && !isFinalStatus;
+    // Is it Upcoming? (delivery date is in the future, not finalized)
+    const isUpcomingOrder = deliveryDate > endOfToday && !isFinalStatus;
+
+    if (isTodayReceived) pickupTodayReceived++;
+    if (isTodayReady) pickupTodayReady++;
+    if (isOverdueOrder) pickupOverdue++;
+    if (isUpcomingOrder) pickupUpcoming++;
   });
+
+  let processedOrders = activeTab === 'pos' ? posOrders : pickupOrders;
 
   // 2. Date category filtering
   if (dateFilter !== 'all') {
@@ -205,7 +231,7 @@ export default function AdminDashboard() {
     });
   }
 
-  if (loading && orders.length === 0) {
+  if (loading && posOrders.length === 0 && pickupOrders.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
         <div className="text-[#cca43b] text-sm font-semibold animate-pulse uppercase tracking-widest">
@@ -232,7 +258,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Inline error banner for partial failures */}
-      {error && orders.length > 0 && (
+      {error && (posOrders.length > 0 || pickupOrders.length > 0) && (
         <div className="bg-red-50 border border-red-100 text-red-650 text-xs px-4 py-3 rounded-2xl font-medium">
           ⚠️ {error}
         </div>
@@ -306,7 +332,7 @@ export default function AdminDashboard() {
                 : 'border-transparent text-gray-400 hover:text-gray-650'
             }`}
           >
-            POS Receipts ({orders.filter(o => o.metadata?.order_type === 'pos' || o.customer_id === null).length})
+            POS Receipts ({posOrders.length})
           </button>
           <button
             type="button"
@@ -320,7 +346,7 @@ export default function AdminDashboard() {
                 : 'border-transparent text-gray-400 hover:text-gray-650'
             }`}
           >
-            Pickup Orders ({orders.filter(o => o.metadata?.order_type === 'pickup' || (o.metadata?.order_type !== 'pos' && o.customer_id !== null)).length})
+            Pickup Orders ({pickupOrders.length})
           </button>
         </div>
 
@@ -367,11 +393,8 @@ export default function AdminDashboard() {
               { code: 'previous', label: 'Previous' }
             ].map((f) => {
               // Count for this filter item (calculated dynamically for the currently active tab)
-              const count = orders.filter((o) => {
-                // Tab filter
-                const isPOS = o.metadata?.order_type === 'pos' || o.customer_id === null;
-                if (activeTab === 'pickup' && isPOS) return false;
-                if (activeTab === 'pos' && !isPOS) return false;
+              const tabOrders = activeTab === 'pos' ? posOrders : pickupOrders;
+              const count = tabOrders.filter((o) => {
                 // Date filter
                 if (f.code === 'all') return true;
                 const targetDate = getOrderTargetDate(o);
@@ -419,10 +442,18 @@ export default function AdminDashboard() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {processedOrders.map((o) => (
-                <tr key={o.id} className="hover:bg-gray-50/50">
-                  <td className="py-4 font-mono font-bold text-gray-700">{o.order_number}</td>
-                  <td className="py-4">
-                    <span className="font-semibold block text-[#1a1d20]">
+                <tr key={o.id} className="hover:bg-gray-50/50 group">
+                  <td 
+                    onClick={() => handleViewDetails(o.id)}
+                    className="py-4 font-mono font-bold text-[#cca43b] cursor-pointer hover:underline"
+                  >
+                    {o.order_number}
+                  </td>
+                  <td 
+                    onClick={() => handleViewDetails(o.id)}
+                    className="py-4 cursor-pointer"
+                  >
+                    <span className="font-semibold block text-[#1a1d20] group-hover:text-[#cca43b] transition-colors">
                       {o.customer
                         ? `${o.customer.first_name || ''} ${o.customer.last_name || ''}`
                         : (o.metadata?.customer_name || 'Guest User')
@@ -436,7 +467,7 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="py-4 text-gray-650">
-                    {activeTab === 'pos' ? (
+                    {o.order_type === 'pos' ? (
                       <>
                         <span className="font-semibold block text-amber-800 bg-amber-50/50 border border-amber-100/50 px-2 py-0.5 rounded-lg text-[10px] w-fit mb-1">
                           Self Drop/Pickup
@@ -450,6 +481,9 @@ export default function AdminDashboard() {
                       </>
                     ) : (
                       <>
+                        <span className="font-semibold block text-blue-800 bg-blue-50/50 border border-blue-100/50 px-2 py-0.5 rounded-lg text-[10px] w-fit mb-1">
+                          Rider Pick/Delivery
+                        </span>
                         <span className="font-semibold block">
                           In: {new Date(getOrderTargetDate(o)).toLocaleDateString()}
                         </span>
@@ -459,31 +493,35 @@ export default function AdminDashboard() {
                       </>
                     )}
                   </td>
-                  <td className="py-4 font-bold text-[#cca43b]">PKR {o.grand_total}</td>
+                  <td className="py-4 font-bold text-gray-800">PKR {o.grand_total}</td>
                   <td className="py-4">
                     <select
                       value={o.status?.code || ''}
                       onChange={(e) => handleStatusChange(o.id, e.target.value)}
                       className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-[10px] bg-white focus:outline-none text-gray-800 font-medium cursor-pointer"
                     >
-                      {(activeTab === 'pos' ? posStatusOptions : pickupStatusOptions).map((opt) => (
+                      {(o.order_type === 'pos' ? posStatusOptions : pickupStatusOptions).map((opt) => (
                         <option key={opt.code} value={opt.code}>{opt.label}</option>
                       ))}
                     </select>
                   </td>
                   <td className="py-4 text-right">
-                    {activeTab === 'pickup' ? (
+                    <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => setAssigningOrderId(o.id)}
-                        className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-[#cca43b] hover:text-black transition-colors font-semibold border border-gray-100 cursor-pointer"
+                        onClick={() => handleViewDetails(o.id)}
+                        className="px-2.5 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-150 text-gray-650 transition-colors font-semibold border border-gray-150 cursor-pointer text-[10px]"
                       >
-                        Assign Rider
+                        👁️ Details
                       </button>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
-                        In-Store Walk-In
-                      </span>
-                    )}
+                      {o.order_type === 'pickup' && (
+                        <button
+                          onClick={() => setAssigningOrderId(o.id)}
+                          className="px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-[#cca43b] hover:text-black transition-colors font-semibold border border-gray-100 cursor-pointer text-[10px]"
+                        >
+                          Assign Rider
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -547,6 +585,202 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Order Summary Modal Popover */}
+      {selectedOrderDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full border border-gray-100 shadow-xl overflow-y-auto max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-4">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block mb-1">
+                  Order Details
+                </span>
+                <h3 className="text-lg font-extrabold text-[#1a1d20] font-serif flex items-center gap-2">
+                  <span>{selectedOrderDetails.order_number}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-105 text-slate-700 font-extrabold uppercase font-sans">
+                    {selectedOrderDetails.order_type === 'pos' ? '🏪 POS Counter' : '🚚 Online Pickup'}
+                  </span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedOrderDetails(null)}
+                className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-xs text-slate-700">
+              
+              {/* Left Column: Info details */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-bold text-[10px] uppercase text-[#cca43b] tracking-wider mb-1">Customer Information</h4>
+                  <div className="bg-amber-50/20 border border-amber-100/30 p-3 rounded-2xl space-y-1">
+                    <p className="font-bold text-gray-800">
+                      {selectedOrderDetails.customer
+                        ? `${selectedOrderDetails.customer.first_name || ''} ${selectedOrderDetails.customer.last_name || ''}`
+                        : (selectedOrderDetails.metadata?.customer_name || 'Guest User')
+                      }
+                    </p>
+                    <p className="font-mono text-gray-500">
+                      Phone: {selectedOrderDetails.customer
+                        ? (selectedOrderDetails.customer.phone || 'N/A')
+                        : (selectedOrderDetails.metadata?.phone || 'N/A')
+                      }
+                    </p>
+                    {selectedOrderDetails.customer?.email && (
+                      <p className="text-gray-500">Email: {selectedOrderDetails.customer.email}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-[10px] uppercase text-[#cca43b] tracking-wider mb-1">Status & Timeline</h4>
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-1">
+                    <p className="font-semibold text-gray-800">
+                      Current Status: <span className="font-bold uppercase text-slate-750">{selectedOrderDetails.status?.label || 'Unknown'}</span>
+                    </p>
+                    <p className="text-gray-500">
+                      Created At: {new Date(selectedOrderDetails.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Schedule & Metadata */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-bold text-[10px] uppercase text-[#cca43b] tracking-wider mb-1">Schedule Details</h4>
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-1">
+                    <p className="font-semibold text-gray-800">
+                      Order Date: {selectedOrderDetails.pickup_date ? new Date(selectedOrderDetails.pickup_date).toLocaleDateString() : 'N/A'}
+                    </p>
+                    <p className="font-semibold text-gray-850">
+                      Expected Delivery: {selectedOrderDetails.delivery_date ? new Date(selectedOrderDetails.delivery_date).toLocaleDateString() : 'N/A'}
+                    </p>
+                    {selectedOrderDetails.address && (
+                      <p className="text-gray-500 mt-2 pt-2 border-t border-slate-200">
+                        Delivery Address: {selectedOrderDetails.address.address_line_1}, {selectedOrderDetails.address.city}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedOrderDetails.special_instructions && (
+                  <div>
+                    <h4 className="font-bold text-[10px] uppercase text-[#cca43b] tracking-wider mb-1">Special Notes</h4>
+                    <div className="bg-red-50/30 border border-red-100/30 p-3 rounded-2xl text-red-800 font-medium font-sans">
+                      {selectedOrderDetails.special_instructions}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Items List */}
+            <div className="border border-slate-100 rounded-3xl overflow-hidden mb-6">
+              <div className="bg-slate-50/50 px-4 py-3 border-b border-slate-100">
+                <h4 className="font-extrabold text-[10px] uppercase text-gray-500 tracking-wider">Order Items Selection</h4>
+              </div>
+              <div className="divide-y divide-slate-50 text-xs">
+                {(selectedOrderDetails.items || []).map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center px-4 py-3 hover:bg-slate-50/30">
+                    <div>
+                      <span className="font-bold text-slate-800 block">
+                        {item.item_name_snapshot || 'Laundry Item'}
+                      </span>
+                      <span className="text-[9px] text-[#cca43b] font-bold uppercase tracking-wider block">
+                        {item.service_name_snapshot || 'Service Option'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-semibold text-slate-500 block text-[10px]">
+                        PKR {item.unit_price} x {item.quantity}
+                      </span>
+                      <span className="font-bold text-slate-800 block">
+                        PKR {item.line_total}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                
+                {(!selectedOrderDetails.items || selectedOrderDetails.items.length === 0) && (
+                  <div className="p-4 text-center text-gray-400 font-semibold uppercase text-[10px]">
+                    No specific items list selected (Quick Booking)
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Totals Block Summary */}
+            <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-3xl space-y-2.5 text-xs mb-6">
+              <div className="flex justify-between text-gray-500">
+                <span>Subtotal Selection</span>
+                <span className="font-semibold">PKR {selectedOrderDetails.subtotal.toFixed(2)}</span>
+              </div>
+              {selectedOrderDetails.service_fee > 0 && (
+                <div className="flex justify-between text-gray-500">
+                  <span>Service Delivery Fee</span>
+                  <span className="font-semibold">PKR {selectedOrderDetails.service_fee.toFixed(2)}</span>
+                </div>
+              )}
+              {selectedOrderDetails.discount_total > 0 && (
+                <div className="flex justify-between text-green-700 font-medium">
+                  <span>Special Coupon Discount</span>
+                  <span>- PKR {selectedOrderDetails.discount_total.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-slate-200/60 pt-3 text-sm font-extrabold text-[#1a1d20] font-serif">
+                <span>GRAND TOTAL</span>
+                <span className="text-[#cca43b]">PKR {selectedOrderDetails.grand_total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedOrderDetails(null)}
+                className="w-1/2 py-3 rounded-xl border border-gray-200 font-semibold text-gray-500 hover:bg-gray-50 cursor-pointer text-xs"
+              >
+                Close Window
+              </button>
+              
+              {selectedOrderDetails.order_type === 'pos' && (
+                <a
+                  href={`https://api.whatsapp.com/send?phone=${
+                    (selectedOrderDetails.metadata?.phone || '').replace(/[^0-9]/g, '').startsWith('0') 
+                      ? '92' + (selectedOrderDetails.metadata?.phone || '').replace(/[^0-9]/g, '').slice(1) 
+                      : (selectedOrderDetails.metadata?.phone || '').replace(/[^0-9]/g, '')
+                  }&text=${encodeURIComponent(
+                    `*AWAIS DRY CLEANERS*\n` +
+                    `==============================\n` +
+                    `*Receipt #:* ${selectedOrderDetails.order_number}\n` +
+                    `*Date:* ${new Date(selectedOrderDetails.created_at).toLocaleDateString()}\n` +
+                    `==============================\n` +
+                    `*Customer:* ${selectedOrderDetails.metadata?.customer_name || 'Guest'}\n` +
+                    `*Phone:* ${selectedOrderDetails.metadata?.phone || 'N/A'}\n` +
+                    `==============================\n` +
+                    `*GRAND TOTAL:* PKR ${selectedOrderDetails.grand_total.toFixed(2)}\n` +
+                    `==============================\n` +
+                    `Thank you for your visit!`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-1/2 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                >
+                  <span>💬 Share WhatsApp</span>
+                </a>
+              )}
+            </div>
+
           </div>
         </div>
       )}

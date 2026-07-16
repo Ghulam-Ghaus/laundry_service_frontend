@@ -35,6 +35,28 @@ export const adminApi = {
     });
   },
 
+  async getPosOrders(page = 1, limit = 20, search?: string, status?: string): Promise<any> {
+    return httpClient.get<any>('/admin/orders/pos', {
+      params: { 
+        page: page.toString(), 
+        limit: limit.toString(), 
+        ...(search ? { search } : {}), 
+        ...(status ? { status } : {}) 
+      },
+    });
+  },
+
+  async getPickupOrders(page = 1, limit = 20, search?: string, status?: string): Promise<any> {
+    return httpClient.get<any>('/admin/orders/pickup', {
+      params: { 
+        page: page.toString(), 
+        limit: limit.toString(), 
+        ...(search ? { search } : {}), 
+        ...(status ? { status } : {}) 
+      },
+    });
+  },
+
   async updateOrderStatus(orderId: string, statusCode: string, note?: string): Promise<{ message: string; statusCode: string }> {
     return httpClient.patch<{ message: string; statusCode: string }>(`/admin/orders/${orderId}/status`, {
       statusCode,
@@ -47,6 +69,10 @@ export const adminApi = {
       staffUserId,
       taskTypeCode,
     });
+  },
+
+  async getOrder(orderId: string): Promise<any> {
+    return httpClient.get<any>(`/admin/orders/${orderId}`);
   },
 
   // --- Catalog CRUD ---
