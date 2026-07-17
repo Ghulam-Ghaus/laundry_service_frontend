@@ -177,4 +177,16 @@ export const adminApi = {
   async restoreRecord(entityName: string, id: string): Promise<{ message: string }> {
     return httpClient.post<{ message: string }>(`/admin/trash/${entityName}/${id}/restore`, {});
   },
+
+  async releaseOrder(
+    orderId: string,
+    dto: {
+      isFullRelease: boolean;
+      items?: { itemId: string; quantityDeliveredNow: number }[];
+      paymentAmountCollectedNow: number;
+      paymentMethodCode?: string;
+    }
+  ): Promise<any> {
+    return httpClient.patch<any>(`/admin/orders/${orderId}/release`, dto);
+  },
 };
